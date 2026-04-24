@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -114,6 +114,8 @@ const StudentPortal = () => {
   const navigate = useNavigate();
   const { section } = useParams<{ section?: string }>();
   const [announcementLimit, setAnnouncementLimit] = useState(6);
+  const [student, setStudent] = useState<PortalStudent | null>(null);
+  const [announcements, setAnnouncements] = useState<PortalAnnouncement[]>([]);
 
   const {
     data,
@@ -134,8 +136,12 @@ const StudentPortal = () => {
     },
   });
 
-  const student = data?.student ?? null;
-  const announcements = data?.announcements ?? [];
+  useEffect(() => {
+    if (data) {
+      setStudent(data.student);
+      setAnnouncements(data.announcements);
+    }
+  }, [data]);
 
   // Navigation handler
   const handleNavChange = (nav: string) => {

@@ -32,7 +32,42 @@ type EditableCourse = Course & {
   learningOutcomes: string[];
   objectives: string[];
   thumbnailUrl: string;
-  weeklySchedule: any[];
+  weeklySchedule: BackendCourse["weeklySchedule"];
+};
+
+type CreateCoursePayload = {
+  code: string;
+  name: string;
+  grade: string;
+  description: string;
+  overviewTitle: string;
+  learningOutcomes: string[];
+  objectives: string[];
+  thumbnailUrl: string;
+  schedule: string;
+  weeklySchedule: BackendCourse["weeklySchedule"];
+  teacherId: string;
+  chapters: BackendCourse["chapters"];
+  materials: BackendCourse["materials"];
+};
+
+type UpdateCoursePayload = {
+  courseId: string;
+  path: string;
+  method: string;
+  payload: Record<string, unknown>;
+};
+
+type TeacherData = {
+  classes: Course[];
+  backendCourses: BackendCourse[];
+  students: BackendStudent[];
+  assignments: BackendAssignment[];
+  quizzes: BackendQuiz[];
+  assignmentSubmissions: AssignmentSubmission[];
+  quizSubmissions: QuizSubmission[];
+  timetableSlots: BackendTimetableSlot[];
+  gradebookEntries: BackendGradebookEntry[];
 };
 
 const TAB_LABELS: { id: ActiveTab; label: string }[] = [
@@ -123,15 +158,27 @@ const TeacherClasses = ({
   const queryClient = useQueryClient();
   const { data: teacherData, isLoading: loading } = useTeacherData(teacher);
 
-  const classes = teacherData?.classes ?? [];
-  const backendCourses = teacherData?.backendCourses ?? [];
-  const students = teacherData?.students ?? [];
-  const assignments = teacherData?.assignments ?? [];
-  const quizzes = teacherData?.quizzes ?? [];
-  const assignmentSubmissions = teacherData?.assignmentSubmissions ?? [];
-  const quizSubmissions = teacherData?.quizSubmissions ?? [];
-  const timetableSlots = teacherData?.timetableSlots ?? [];
-  const gradebookEntries = teacherData?.gradebookEntries ?? [];
+  const classes = useMemo(() => teacherData?.classes ?? [], [teacherData?.classes]);
+  const backendCourses = useMemo(() => teacherData?.backendCourses ?? [], [teacherData?.backendCourses]);
+  const students = useMemo(() => teacherData?.students ?? [], [teacherData?.students]);
+  const assignments = useMemo(() => teacherData?.assignments ?? [], [teacherData?.assignments]);
+  const quizzes = useMemo(() => teacherData?.quizzes ?? [], [teacherData?.quizzes]);
+  const assignmentSubmissions = useMemo(
+    () => teacherData?.assignmentSubmissions ?? [],
+    [teacherData?.assignmentSubmissions],
+  );
+  const quizSubmissions = useMemo(
+    () => teacherData?.quizSubmissions ?? [],
+    [teacherData?.quizSubmissions],
+  );
+  const timetableSlots = useMemo(
+    () => teacherData?.timetableSlots ?? [],
+    [teacherData?.timetableSlots],
+  );
+  const gradebookEntries = useMemo(
+    () => teacherData?.gradebookEntries ?? [],
+    [teacherData?.gradebookEntries],
+  );
 
   const [activeTab, setActiveTab] = useState<ActiveTab>("overview");
   const [expandedStudentId, setExpandedStudentId] = useState<number | null>(null);
@@ -268,7 +315,7 @@ const TeacherClasses = ({
   // Returns the courseId (creates the course if backendCourseId is still null).
   // ---------------------------------------------------------------------------
   const createCourseMutation = useMutation({
-    mutationFn: async (payload: any) => {
+    mutationFn: async (payload: CreateCoursePayload) => {
       return apiAuthRequest<BackendCourse>("/courses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -277,7 +324,7 @@ const TeacherClasses = ({
     },
     onSuccess: (res) => {
       setBackendCourseId(res.id);
-      queryClient.setQueryData(["teacher-data", teacher.id], (old: any) => {
+      queryClient.setQueryData<TeacherData | undefined>(["teacher-data", teacher.id], (old) => {
         if (!old) return old;
         return {
           ...old,
@@ -293,12 +340,7 @@ const TeacherClasses = ({
       path,
       method,
       payload,
-    }: {
-      courseId: string;
-      path: string;
-      method: string;
-      payload: any;
-    }) => {
+    }: UpdateCoursePayload) => {
       return apiAuthRequest<BackendCourse>(`/courses/${courseId}${path}`, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -307,11 +349,11 @@ const TeacherClasses = ({
     },
     onSuccess: (res) => {
       syncFromResponse(res);
-      queryClient.setQueryData(["teacher-data", teacher.id], (old: any) => {
+      queryClient.setQueryData<TeacherData | undefined>(["teacher-data", teacher.id], (old) => {
         if (!old) return old;
         return {
           ...old,
-          backendCourses: old.backendCourses.map((bc: any) =>
+          backendCourses: old.backendCourses.map((bc) =>
             bc.id === res.id ? res : bc,
           ),
         };
