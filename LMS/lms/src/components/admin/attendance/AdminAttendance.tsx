@@ -1,5 +1,7 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { apiAuthRequest } from "@/lib/api";
+import { loadAuthSession } from "@/lib/auth";
+import TeacherAttendance from "@/components/teacher/attendance/TeacherAttendance";
 import AttendanceDetails from "./components/AttendanceDetails";
 import AttendanceFilters from "./components/AttendanceFilters";
 import StudentList from "./components/StudentList";
@@ -70,7 +72,20 @@ const buildLogsFromSubmissions = (
   return logs;
 };
 
-const AdminAttendance = ({ students = [] }: AdminAttendanceProps) => {
+const AdminAttendance = ({ students = [], teacherName, teacherClasses }: AdminAttendanceProps) => {
+  const [activeTab, setActiveTab] = useState<"logs" | "mark">("logs");
+
+  const computedTeacherName = useMemo(() => {
+    return teacherName ?? loadAuthSession()?.user.name ?? "Admin User";
+  }, [teacherName]);
+
+  const computedTeacherClasses = useMemo(() => {
+    if (teacherClasses && teacherClasses.length > 0) {
+      return teacherClasses;
+    }
+    return Array.from(new Set(students.map((s) => s.grade))).filter(Boolean);
+  }, [students, teacherClasses]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedClass, setSelectedClass] = useState<string>("All Classes");
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
@@ -218,71 +233,105 @@ const AdminAttendance = ({ students = [] }: AdminAttendanceProps) => {
   };
 
   return (
-    <div>
-      {teacherSubmissions.length === 0 && (
-        <div className="mb-4 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
-          No attendance submissions yet. Ask teachers to submit attendance to see
-          records here.
-        </div>
-      )}
+    <div className="space-y-6">
+      {/* Tab Switcher */}
+      <div className="flex gap-2 mb-6 border-b border-border">
+        <button
+          onClick={() => setActiveTab("logs")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "logs"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Attendance Logs
+        </button>
+        <button
+          onClick={() => setActiveTab("mark")}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === "mark"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Mark Attendance
+        </button>
+      </div>
 
-      {classSummary.length > 0 && (
-        <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {classSummary.map((entry) => (
-            <button
-              key={entry.className}
-              type="button"
-              onClick={() => setSelectedClass(entry.className)}
-              className="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/40"
-            >
-              <p className="text-xs text-muted-foreground">Class</p>
-              <p className="text-lg font-semibold text-foreground">{entry.className}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Submissions: {entry.submissions} · Students: {entry.entries}
-              </p>
-              {entry.lastDate && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Last submitted: {entry.lastDate}
-                </p>
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <AttendanceFilters
-        selectedClass={selectedClass}
-        onSelectClass={setSelectedClass}
-        classOptions={classOptions}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        filteredCount={filteredStudents.length}
-        totalCount={students.length}
-      />
-
-      <StudentList
-        students={filteredStudents}
-        onSelectStudent={(student) => {
-          setSelectedStudentId(student.id);
-          setActiveStatusFilter(null);
-          setActiveSubjectFilter("All Subjects");
-        }}
-      />
-
-      {selectedStudent && (
-        <AttendanceDetails
-          selectedStudent={selectedStudent}
-          subjectOptions={subjectOptions}
-          activeSubjectFilter={activeSubjectFilter}
-          onSubjectFilterChange={setActiveSubjectFilter}
-          statusCounts={statusCounts}
-          activeStatusFilter={activeStatusFilter}
-          onStatusFilterChange={setActiveStatusFilter}
-          visibleRecords={visibleRecords}
-          subjectFilteredTotal={subjectFilteredLog.length}
-          onClose={() => setSelectedStudentId(null)}
-          onUpdateRecordStatus={updateRecordStatus}
+      {activeTab === "mark" ? (
+        <TeacherAttendance
+          students={students}
+          teacherName={computedTeacherName}
+          teacherClasses={computedTeacherClasses}
         />
+      ) : (
+        <div className="space-y-6">
+          {teacherSubmissions.length === 0 && (
+            <div className="mb-4 rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+              No attendance submissions yet. Ask teachers to submit attendance to see
+              records here.
+            </div>
+          )}
+
+          {classSummary.length > 0 && (
+            <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {classSummary.map((entry) => (
+                <button
+                  key={entry.className}
+                  type="button"
+                  onClick={() => setSelectedClass(entry.className)}
+                  className="rounded-xl border border-border bg-card p-4 text-left hover:border-primary/40"
+                >
+                  <p className="text-xs text-muted-foreground">Class</p>
+                  <p className="text-lg font-semibold text-foreground">{entry.className}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Submissions: {entry.submissions} · Students: {entry.entries}
+                  </p>
+                  {entry.lastDate && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Last submitted: {entry.lastDate}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <AttendanceFilters
+            selectedClass={selectedClass}
+            onSelectClass={setSelectedClass}
+            classOptions={classOptions}
+            searchQuery={searchQuery}
+            onSearchQueryChange={setSearchQuery}
+            filteredCount={filteredStudents.length}
+            totalCount={students.length}
+          />
+
+          <StudentList
+            students={filteredStudents}
+            onSelectStudent={(student) => {
+              setSelectedStudentId(student.id);
+              setActiveStatusFilter(null);
+              setActiveSubjectFilter("All Subjects");
+            }}
+          />
+
+          {selectedStudent && (
+            <AttendanceDetails
+              selectedStudent={selectedStudent}
+              subjectOptions={subjectOptions}
+              activeSubjectFilter={activeSubjectFilter}
+              onSubjectFilterChange={setActiveSubjectFilter}
+              statusCounts={statusCounts}
+              activeStatusFilter={activeStatusFilter}
+              onStatusFilterChange={setActiveStatusFilter}
+              visibleRecords={visibleRecords}
+              subjectFilteredTotal={subjectFilteredLog.length}
+              onClose={() => setSelectedStudentId(null)}
+              onUpdateRecordStatus={updateRecordStatus}
+            />
+          )}
+        </div>
       )}
     </div>
   );

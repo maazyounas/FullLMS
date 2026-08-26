@@ -46,11 +46,13 @@ type GradebookSavePayload = {
 };
 
 const TeacherGradebook = ({ teacher, students = [] }: Props) => {
+  const queryClient = useQueryClient();
   const [selectedClass, setSelectedClass] = useState(teacher.classes[0] || "");
   const [term, setTerm] = useState("Term 1");
   const [assessment, setAssessment] = useState("");
   const [totalMarks, setTotalMarks] = useState("100");
   const [marksMap, setMarksMap] = useState<Record<number, string>>({});
+  const [autoFillMissing, setAutoFillMissing] = useState(false);
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   const [entriesPage, setEntriesPage] = useState(1);
   const [page, setPage] = useState(1);

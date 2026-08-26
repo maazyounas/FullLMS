@@ -12,6 +12,11 @@ import {
   CalendarClock,
   FileText,
   Settings,
+  BookOpen,
+  ClipboardList,
+  Calendar,
+  ClipboardCheck,
+  CheckCircle2,
 } from "lucide-react";
 import PortalLayout from "@/components/PortalLayout";
 import AdminDashboard from "@/components/admin/dashboard/AdminDashboard";
@@ -27,6 +32,14 @@ import AdminCreateClass from "@/components/admin/create-class/AdminCreateClass";
 import AdminSettings from "@/components/admin/settings/AdminSettings";
 import AdminPasswordResetNotifications from "@/components/admin/communication/AdminPasswordResetNotifications";
 import { useAdminData } from "@/hooks/use-admin-data";
+import TeacherLeave from "@/components/teacher/leave/TeacherLeave";
+import TeacherClasses from "@/components/teacher/classes/TeacherClasses";
+import TeacherGradebook from "@/components/teacher/gradebook/TeacherGradebook";
+import TeacherAssignments from "@/components/teacher/assignments/TeacherAssignments";
+import TeacherTimetable from "@/components/teacher/timetable/TeacherTimetable";
+import TeacherCreateQuiz from "@/components/teacher/quizzes/TeacherCreateQuiz";
+import TeacherCheckQuizzes from "@/components/teacher/quizzes/TeacherCheckQuizzes";
+import type { Course, Teacher } from "@/types/domain";
 
 const DEFAULT_SUBJECTS = [
   "Mathematics",
@@ -50,6 +63,12 @@ const navItems = [
   { id: "announcements", label: "Announcements", icon: Bell },
   { id: "reports", label: "Reports", icon: FileText },
   { id: "settings", label: "Settings", icon: Settings },
+  { id: "classes", label: "My Classes", icon: BookOpen },
+  { id: "gradebook", label: "Gradebook", icon: ClipboardList },
+  { id: "assignments", label: "Assignments", icon: ClipboardList },
+  { id: "timetable", label: "Teacher Timetable", icon: Calendar },
+  { id: "createQuiz", label: "Create Quiz", icon: ClipboardCheck },
+  { id: "checkQuizzes", label: "Check Quizzes", icon: CheckCircle2 },
 ];
 
 const AdminPortal = () => {
@@ -104,6 +123,31 @@ const AdminPortal = () => {
   );
   const [pendingLeaves, setPendingLeaves] = useState(3);
   const currentAdmin = "Admin User";
+
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>("");
+  const [adminSelectedTeacherClass, setAdminSelectedTeacherClass] = useState<Course | null>(null);
+
+  const selectedTeacher = useMemo(() => {
+    const defaultTeacher = {
+      id: 0,
+      backendId: "",
+      name: "Unassigned Teacher",
+      subject: "",
+      email: "",
+      avatar: "T",
+      classes: [],
+      students: 0,
+      phone: "",
+      address: "",
+      dob: "",
+      gender: "",
+      qualification: "",
+      joinDate: "",
+      emergencyContact: "",
+      emergencyPhone: "",
+    };
+    return teachers.find((t) => t.backendId === selectedTeacherId) || teachers[0] || defaultTeacher;
+  }, [teachers, selectedTeacherId]);
 
   const activeNav = navItems.some((item) => item.id === section)
     ? (section as string)
@@ -314,9 +358,44 @@ const AdminPortal = () => {
           />
         );
       case "attendance":
-        return <AdminAttendance students={students} />;
+        return (
+          <AdminAttendance
+            students={students}
+            teacherName={selectedTeacher.name}
+            teacherClasses={selectedTeacher.classes}
+          />
+        );
       case "leave-requests":
-        return <AdminLeaveRequests onPendingCountChange={setPendingLeaves} />;
+        return <TeacherLeave onPendingCountChange={setPendingLeaves} />;
+      case "classes":
+        return (
+          <TeacherClasses
+            teacher={selectedTeacher}
+            selectedClass={adminSelectedTeacherClass}
+            onSelectClass={setAdminSelectedTeacherClass}
+            onNavigate={handleNavChange}
+          />
+        );
+      case "gradebook":
+        return (
+          <TeacherGradebook
+            teacher={selectedTeacher}
+            students={students.filter((s) => selectedTeacher.classes.includes(s.grade))}
+          />
+        );
+      case "assignments":
+        return (
+          <TeacherAssignments
+            teacher={selectedTeacher}
+            students={students.filter((s) => selectedTeacher.classes.includes(s.grade))}
+          />
+        );
+      case "timetable":
+        return <TeacherTimetable teacher={selectedTeacher} />;
+      case "createQuiz":
+        return <TeacherCreateQuiz teacher={selectedTeacher} />;
+      case "checkQuizzes":
+        return <TeacherCheckQuizzes teacher={selectedTeacher} />;
       case "announcements":
         return (
           <AdminAnnouncements
@@ -349,6 +428,38 @@ const AdminPortal = () => {
 
       {/* Main content area with consistent card styling */}
       <div className="card card-elevated animate-fade-in p-6">
+        {new Set([
+          "attendance",
+          "classes",
+          "gradebook",
+          "assignments",
+          "timetable",
+          "createQuiz",
+          "checkQuizzes",
+        ]).has(activeNav) && (
+          <div className="mb-6 p-4 rounded-xl border border-border bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Teacher Perspective</h3>
+              <p className="text-xs text-muted-foreground">You are viewing/marking data as the selected teacher below.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="teacher-select" className="text-xs font-medium text-muted-foreground whitespace-nowrap">Select Teacher:</label>
+              <select
+                id="teacher-select"
+                value={selectedTeacherId}
+                onChange={(e) => setSelectedTeacherId(e.target.value)}
+                className="select-modern min-w-56 text-sm bg-background border border-border rounded-lg px-3 py-2 outline-none"
+              >
+                <option value="">-- Choose Teacher --</option>
+                {teachers.map((t) => (
+                  <option key={t.backendId} value={t.backendId}>
+                    {t.name} ({t.subject || "No Subject"})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
         {renderContent()}
       </div>
     </PortalLayout>

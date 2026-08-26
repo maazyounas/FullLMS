@@ -97,7 +97,7 @@ async function silentRefresh(portalRole: AppRole): Promise<string | null> {
   }
 
   const session = loadAuthSession(portalRole);
-  if (!session?.refreshToken) return null;
+  if (!session) return null;
 
   const promise: Promise<string | null> = (async () => {
     try {

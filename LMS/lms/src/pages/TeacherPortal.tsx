@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   BookOpen,
@@ -11,6 +12,14 @@ import {
   CalendarOff,
   Megaphone,
   CalendarCheck,
+  UserCog,
+  Wallet,
+  CalendarClock,
+  Layers3,
+  FileText,
+  Settings,
+  CalendarDays,
+  GraduationCap,
 } from "lucide-react";
 import PortalLayout from "@/components/PortalLayout";
 import {
@@ -32,21 +41,35 @@ import TeacherAttendance from "@/components/teacher/attendance/TeacherAttendance
 import AdminAttendance from "@/components/admin/attendance/AdminAttendance";
 import TeacherGradebook from "@/components/teacher/gradebook/TeacherGradebook";
 import TeacherTimetable from "@/components/teacher/timetable/TeacherTimetable";
+import AdminStudent from "@/components/admin/student/AdminStudent";
+import AdminTeacher from "@/components/admin/teacher/AdminTeacher";
+import FeeManagement from "@/components/admin/fee/FeeManagement";
+import AdminTimetablePlanner from "@/components/admin/planner/AdminTimetablePlanner";
+import AdminCreateClass from "@/components/admin/create-class/AdminCreateClass";
+import AdminReports from "@/components/admin/reports/AdminReports";
+import AdminSettings from "@/components/admin/settings/AdminSettings";
+import { useAdminData } from "@/hooks/use-admin-data";
 import { apiAuthRequest } from "@/lib/api";
 import { EmptyState, SectionLoader } from "@/components/ui/states";
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "create-class", label: "Create Class", icon: Layers3 },
+  { id: "students", label: "Students", icon: UserCog },
+  { id: "teachers", label: "Teachers", icon: GraduationCap },
+  { id: "fee", label: "Fee Management", icon: Wallet },
+  { id: "planner", label: "Timetable Planner", icon: CalendarClock },
+  { id: "attendance", label: "Attendance", icon: CalendarCheck },
+  { id: "leave", label: "Leave Requests", icon: CalendarDays },
+  { id: "announcements", label: "Announcements", icon: Megaphone },
+  { id: "reports", label: "Reports", icon: FileText },
+  { id: "settings", label: "Settings", icon: Settings },
   { id: "classes", label: "My Classes", icon: BookOpen },
   { id: "gradebook", label: "Gradebook", icon: ClipboardList },
   { id: "assignments", label: "Assignments", icon: ClipboardList },
-  { id: "attendance", label: "Attendance", icon: CalendarCheck },
   { id: "timetable", label: "Timetable", icon: Calendar },
-  { id: "see-attendance", label: "See Attendance", icon: CalendarCheck },
   { id: "createQuiz", label: "Create Quiz", icon: ClipboardCheck },
   { id: "checkQuizzes", label: "Check Quizzes", icon: CheckCircle2 },
-  { id: "leave", label: "Apply for Leave", icon: CalendarOff },
-  { id: "announcements", label: "Announcements", icon: Megaphone },
 ];
 
 const emptyTeacher: Teacher = {
@@ -174,13 +197,19 @@ const mapAnnouncement = (
   author: announcement.authorName,
 });
 
+interface AnnouncementTarget {
+  targetType: "all" | "classes" | "students";
+  targetClasses: string[];
+  targetStudentIds: number[];
+}
+
 const TeacherPortal = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { section } = useParams<{ section?: string }>();
   const [selectedClass, setSelectedClass] = useState<Course | null>(null);
 
-  const { data: portalData, isLoading } = useQuery({
+  const { data: portalData, isLoading, isError: hasLoadError } = useQuery({
     queryKey: ["teacher-portal-data"],
     queryFn: async () => {
       const [teacherResult, studentsResult, announcementsResult] =
@@ -219,6 +248,134 @@ const TeacherPortal = () => {
   const students = portalData?.students ?? [];
   const announcements = portalData?.announcements ?? [];
   const myStudents = students;
+
+  const {
+    announcements: adminAnnouncements,
+    setAnnouncements,
+    students: adminStudents,
+    setStudents,
+    teachers: adminTeachers,
+    setTeachers: setAdminTeachers,
+    feeTransactions,
+    setFeeTransactions,
+    plannerAllocations,
+    setPlannerAllocations,
+    customClasses,
+    setCustomClasses,
+    classSubjects,
+    setClassSubjects,
+    addAuditLog,
+    createFeeTransaction,
+    updateFeeTransaction,
+    assignStudentFeeDue,
+    createStudent,
+    updateStudent,
+    deleteStudent,
+    resetStudentPassword,
+    createTeacher,
+    updateTeacher,
+    deleteTeacher,
+    resetTeacherPassword,
+    createClass,
+    deleteClass,
+    addClassSubject,
+    deleteClassSubject,
+    fetchPlannerAllocations,
+    createPlannerAllocation,
+    updatePlannerAllocation,
+    deletePlannerAllocation,
+  } = useAdminData();
+
+  const [feeFilter, setFeeFilter] = useState<"all" | "pending">("all");
+  const [studentSection, setStudentSection] = useState<"enroll" | "search" | "reset">("enroll");
+  const [dashboardSelectedStudentId, setDashboardSelectedStudentId] = useState<number | null>(null);
+  const [teacherSection, setTeacherSection] = useState<"enroll" | "search" | "reset">("enroll");
+
+  const classOptions = useMemo(() => {
+    const fromStudents = adminStudents.map((s) => s.grade);
+    const fromAllocations = plannerAllocations.map((a) => a.className);
+    return Array.from(new Set([...fromStudents, ...fromAllocations, ...customClasses])).sort();
+  }, [adminStudents, plannerAllocations, customClasses]);
+
+  const DEFAULT_SUBJECTS = [
+    "Mathematics",
+    "English",
+    "Physics",
+    "Chemistry",
+    "Urdu",
+    "Computer Science",
+    "Biology",
+  ];
+
+  const subjectOptions = useMemo(() => {
+    const fromTeachers = adminTeachers.flatMap((t) =>
+      t.subject
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    );
+    const fromAllocations = plannerAllocations.map((a) => a.subject);
+    const fromClasses = Object.values(classSubjects).flat();
+    return Array.from(
+      new Set([...DEFAULT_SUBJECTS, ...fromTeachers, ...fromAllocations, ...fromClasses])
+    ).sort();
+  }, [adminTeachers, plannerAllocations, classSubjects]);
+
+  const timetableRows = useMemo(() => {
+    const dayMap: Record<string, "mon" | "tue" | "wed" | "thu" | "fri"> = {
+      Mon: "mon",
+      Tue: "tue",
+      Wed: "wed",
+      Thu: "thu",
+      Fri: "fri",
+    };
+
+    const rows = plannerAllocations.reduce<
+      Record<
+        string,
+        {
+          time: string;
+          mon?: string;
+          tue?: string;
+          wed?: string;
+          thu?: string;
+          fri?: string;
+        }
+      >
+    >((acc, allocation) => {
+      const key = allocation.time || `${allocation.startTime} - ${allocation.endTime}`;
+      const dayKey = dayMap[allocation.day];
+      if (!dayKey) return acc;
+
+      if (!acc[key]) {
+        acc[key] = { time: key };
+      }
+
+      acc[key][dayKey] = allocation.subject;
+      return acc;
+    }, {});
+
+    return Object.values(rows);
+  }, [plannerAllocations]);
+
+  const courseSummaries = useMemo(() => {
+    const scheduleByClassSubject = plannerAllocations.reduce<Record<string, string>>((acc, item) => {
+      const key = `${item.className}::${item.subject}`;
+      const label = `${item.day} ${item.time}`;
+      acc[key] = acc[key] ? `${acc[key]}, ${label}` : label;
+      return acc;
+    }, {});
+
+    return Object.entries(classSubjects).flatMap(([className, subjects], index) =>
+      subjects.map((subject, subjectIndex) => ({
+        id: index * 100 + subjectIndex + 1,
+        name: subject,
+        code: `${className}-${subject}`.replace(/\s+/g, "-").toUpperCase(),
+        progress: 0,
+        schedule: scheduleByClassSubject[`${className}::${subject}`] ?? "Not set",
+      })),
+    );
+  }, [classSubjects, plannerAllocations]);
 
   const studentIdMap = useMemo(
     () =>
@@ -337,18 +494,94 @@ const TeacherPortal = () => {
         );
       case "attendance":
         return (
-          <TeacherAttendance
-            students={myStudents.filter((s) => teacher.classes.includes(s.grade))}
+          <AdminAttendance
+            students={students}
             teacherName={teacher.name}
             teacherClasses={teacher.classes}
           />
         );
-      case "see-attendance":
+      case "create-class":
         return (
-          <AdminAttendance
-            students={myStudents.filter((s) => teacher.classes.includes(s.grade))}
+          <AdminCreateClass
+            classes={customClasses}
+            classSubjects={classSubjects}
+            teachers={adminTeachers}
+            students={adminStudents}
+            courses={courseSummaries}
+            onAddClass={createClass}
+            onDeleteClass={deleteClass}
+            onAddSubject={addClassSubject}
+            onDeleteSubject={deleteClassSubject}
           />
         );
+      case "students":
+        return (
+          <AdminStudent
+            students={adminStudents}
+            onStudentsChange={setStudents}
+            onOpenFeeManagement={() => handleNavChange("fee")}
+            timetable={timetableRows}
+            onAuditLog={addAuditLog}
+            currentAdmin={teacher.name}
+            initialSection={studentSection}
+            initialSelectedStudentId={dashboardSelectedStudentId}
+            onCreateStudent={createStudent}
+            onUpdateStudent={updateStudent}
+            onDeleteStudent={deleteStudent}
+            onResetStudentPassword={resetStudentPassword}
+          />
+        );
+      case "teachers":
+        return (
+          <AdminTeacher
+            teachers={adminTeachers}
+            onTeachersChange={setAdminTeachers}
+            onAuditLog={addAuditLog}
+            currentAdmin={teacher.name}
+            initialSection={teacherSection}
+            onCreateTeacher={createTeacher}
+            onUpdateTeacher={updateTeacher}
+            onDeleteTeacher={deleteTeacher}
+            onResetTeacherPassword={resetTeacherPassword}
+            classOptions={customClasses}
+            subjectOptions={Array.from(new Set(Object.values(classSubjects).flat())).sort()}
+            classSubjectOptions={classSubjects}
+          />
+        );
+      case "fee":
+        return (
+          <FeeManagement
+            students={adminStudents}
+            onStudentsChange={setStudents}
+            onRecordTransaction={createFeeTransaction}
+            onUpdateTransaction={updateFeeTransaction}
+            onAssignDue={assignStudentFeeDue}
+            onTransactionsChange={setFeeTransactions}
+            transactions={feeTransactions}
+            onAuditLog={addAuditLog}
+            currentAdmin={teacher.name}
+            showPendingOnly={feeFilter === "pending"}
+          />
+        );
+      case "planner":
+        return (
+          <AdminTimetablePlanner
+            teachers={adminTeachers}
+            allocations={plannerAllocations}
+            classOptions={customClasses}
+            subjectOptions={subjectOptions}
+            onAllocationsChange={setPlannerAllocations}
+            classSubjectOptions={classSubjects}
+            onLoadWeek={fetchPlannerAllocations}
+            onCreateAllocation={createPlannerAllocation}
+            onUpdateAllocation={updatePlannerAllocation}
+            onDeleteAllocation={deletePlannerAllocation}
+          />
+        );
+      case "reports":
+        return <AdminReports />;
+      case "settings":
+        return <AdminSettings />;
       case "createQuiz":
         return <TeacherCreateQuiz teacher={teacher} />;
       case "checkQuizzes":

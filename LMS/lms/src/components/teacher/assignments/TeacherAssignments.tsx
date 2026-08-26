@@ -358,7 +358,7 @@ const TeacherAssignments = ({ teacher, students = [] }: Props) => {
         gradingFeedback={gradingFeedback}
         onBack={() => {
           setView("list");
-          setSelectedAssignment(null);
+          setSelectedAssignmentId(null);
           setGradingStudent(null);
         }}
         onSaveMarks={handleGradeSubmission}

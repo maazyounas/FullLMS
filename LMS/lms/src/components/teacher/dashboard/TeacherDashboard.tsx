@@ -371,7 +371,6 @@ const TeacherDashboard = ({ teacher, students, onNavigate }: Props) => {
                     onClick={() => {
                       setSelectedStudent(s);
                       setActiveTab("overview");
-                      setStudentDetail(emptyStudentDetail);
                     }}
                     className="w-full flex items-center justify-between p-3 rounded-xl bg-muted/10 hover:bg-muted/30 transition-all group"
                   >

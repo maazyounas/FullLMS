@@ -183,30 +183,21 @@ const StudentAssignments = ({ student }: Props) => {
     setUploading(true);
     try {
       // Step 1: Get Cloudinary signed upload params
-      const sigResponse = await fetch(`${API_BASE_URL}/files/upload-signature`, {
+      const sigData = await apiAuthRequest<{
+        signature: string;
+        timestamp: number;
+        cloudName: string;
+        apiKey: string;
+        folder: string;
+      }>("/files/upload-signature", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${loadAuthSession("student")?.accessToken ?? ""}`,
-        },
         body: JSON.stringify({
           folder: "student-assignments",
           resourceType: "raw",
           allowedFormats: ["pdf", "doc", "docx"],
         }),
       });
-
-      if (!sigResponse.ok) throw new Error("Failed to get upload signature.");
-      const sigData = (await sigResponse.json()) as {
-        data: {
-          signature: string;
-          timestamp: number;
-          cloudName: string;
-          apiKey: string;
-          folder: string;
-        };
-      };
-      const { signature, timestamp, cloudName, apiKey, folder } = sigData.data;
+      const { signature, timestamp, cloudName, apiKey, folder } = sigData;
 
       // Step 2: Upload directly to Cloudinary
       const formData = new FormData();

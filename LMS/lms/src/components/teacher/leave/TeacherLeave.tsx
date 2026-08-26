@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { ApiRequestError, apiAuthRequest } from "@/lib/api";
 import type { Teacher } from "@/types/domain";
 import { EmptyState, SectionLoader } from "@/components/ui/states";
+import { loadAuthSession } from "@/lib/auth";
+import AdminLeaveRequests from "@/components/admin/leave-requests/AdminLeaveRequests";
 
 interface LeaveRequest {
   id: string;
@@ -36,10 +38,12 @@ const mapLeave = (leave: BackendLeaveRequest): LeaveRequest => ({
 });
 
 interface Props {
-  teacher: Teacher;
+  teacher?: Teacher;
+  onPendingCountChange?: (count: number) => void;
 }
 
-const TeacherLeave = ({ teacher }: Props) => {
+const TeacherLeave = ({ teacher, onPendingCountChange }: Props) => {
+  const isAdmin = loadAuthSession()?.user.role === "ADMIN";
   const [myLeaves, setMyLeaves] = useState<LeaveRequest[]>([]);
   const [studentLeaves, setStudentLeaves] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -184,7 +188,7 @@ const TeacherLeave = ({ teacher }: Props) => {
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
-          Student Leave Requests
+          {isAdmin ? "Leave Requests" : "Student Leave Requests"}
         </button>
       </div>
 
@@ -297,56 +301,60 @@ const TeacherLeave = ({ teacher }: Props) => {
       )}
 
       {activeTab === "students" && (
-        <div className="bg-card border border-border rounded-xl p-5">
-          <h3 className="font-semibold text-foreground mb-4">Student Leave Requests</h3>
-          <div className="space-y-3">
-            {isLoadingStudents && (
-              <SectionLoader label="Loading requests..." className="min-h-[120px]" />
-            )}
-            {!isLoadingStudents && studentLeaves.length === 0 && (
-              <EmptyState title="No student requests" description="There are no pending leave requests from students." className="min-h-[140px]" />
-            )}
-            {!isLoadingStudents && studentLeaves.map((l) => (
-              <div key={l.id} className="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-lg bg-muted/20 border border-border">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="text-sm font-semibold text-foreground">{l.type}</p>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                      l.status === "Approved" ? "bg-success/15 text-success" :
-                      l.status === "Rejected" ? "bg-destructive/15 text-destructive" :
-                      "bg-warning/15 text-warning"
-                    }`}>
-                      {l.status}
-                    </span>
+        isAdmin ? (
+          <AdminLeaveRequests onPendingCountChange={onPendingCountChange} />
+        ) : (
+          <div className="bg-card border border-border rounded-xl p-5">
+            <h3 className="font-semibold text-foreground mb-4">Student Leave Requests</h3>
+            <div className="space-y-3">
+              {isLoadingStudents && (
+                <SectionLoader label="Loading requests..." className="min-h-[120px]" />
+              )}
+              {!isLoadingStudents && studentLeaves.length === 0 && (
+                <EmptyState title="No student requests" description="There are no pending leave requests from students." className="min-h-[140px]" />
+              )}
+              {!isLoadingStudents && studentLeaves.map((l) => (
+                <div key={l.id} className="flex flex-col sm:flex-row items-start gap-4 p-4 rounded-lg bg-muted/20 border border-border">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm font-semibold text-foreground">{l.type}</p>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                        l.status === "Approved" ? "bg-success/15 text-success" :
+                        l.status === "Rejected" ? "bg-destructive/15 text-destructive" :
+                        "bg-warning/15 text-warning"
+                      }`}>
+                        {l.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Applied on: {l.appliedDate}
+                    </p>
+                    <div className="text-sm text-foreground bg-background p-3 rounded border border-border">
+                      <p><span className="font-medium">Dates:</span> {l.from} to {l.to}</p>
+                      <p className="mt-1"><span className="font-medium">Reason:</span> {l.reason}</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Applied on: {l.appliedDate}
-                  </p>
-                  <div className="text-sm text-foreground bg-background p-3 rounded border border-border">
-                    <p><span className="font-medium">Dates:</span> {l.from} to {l.to}</p>
-                    <p className="mt-1"><span className="font-medium">Reason:</span> {l.reason}</p>
-                  </div>
+                  {l.status === "Pending" && (
+                    <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+                      <button
+                        onClick={() => handleUpdateStatus(l.id, "Approved")}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-success text-success-foreground rounded-lg text-sm font-medium hover:bg-success/90 transition-colors"
+                      >
+                        <CheckCircle className="h-4 w-4" /> Approve
+                      </button>
+                      <button
+                        onClick={() => handleUpdateStatus(l.id, "Rejected")}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors"
+                      >
+                        <XCircle className="h-4 w-4" /> Reject
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {l.status === "Pending" && (
-                  <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => handleUpdateStatus(l.id, "Approved")}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-success text-success-foreground rounded-lg text-sm font-medium hover:bg-success/90 transition-colors"
-                    >
-                      <CheckCircle className="h-4 w-4" /> Approve
-                    </button>
-                    <button
-                      onClick={() => handleUpdateStatus(l.id, "Rejected")}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg text-sm font-medium hover:bg-destructive/90 transition-colors"
-                    >
-                      <XCircle className="h-4 w-4" /> Reject
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )
       )}
     </div>
   );

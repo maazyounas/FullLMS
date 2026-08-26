@@ -62,6 +62,7 @@ export interface Teacher {
   subject: string;
   email: string;
   avatar: string;
+  avatarUrl?: string;
   classes: string[];
   students: number;
   phone: string;

@@ -2,6 +2,8 @@ import type { Student } from "@/types/domain";
 
 export type AdminAttendanceProps = {
   students?: Student[];
+  teacherName?: string;
+  teacherClasses?: string[];
 };
 
 export type AttendanceStatus = "Present" | "Absent" | "Late" | "Leave";

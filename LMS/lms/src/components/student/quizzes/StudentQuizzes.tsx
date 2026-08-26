@@ -190,7 +190,7 @@ const StudentQuizzes = ({ student }: Props) => {
     if (submission) {
       setActiveQuizId(null);
       setAnswers({});
-      setReviewSubmissionId(submission.id);
+      setReviewSubmissionId(`sub-${submission.backendResponse.id}`);
     }
   };
 
