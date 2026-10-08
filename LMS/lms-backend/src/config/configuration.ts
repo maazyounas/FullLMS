@@ -1,12 +1,18 @@
 const parseCorsOrigins = (rawOrigins: string | undefined): string[] => {
-  if (!rawOrigins) {
-    return ['http://localhost:5173'];
-  }
+  const configuredOrigins = rawOrigins
+    ? rawOrigins
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : ['http://localhost:5173'];
+  const vercelOrigins = [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]
+    .filter((origin): origin is string => Boolean(origin))
+    .map((origin) => `https://${origin}`);
 
-  return rawOrigins
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  return [...new Set([...configuredOrigins, ...vercelOrigins])];
 };
 
 const parseBoolean = (
