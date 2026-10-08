@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -86,8 +87,21 @@ export class TimetableService {
     return slots.map((slot) => this.toResponse(slot));
   }
 
-  async create(dto: CreateTimetableSlotDto) {
+  async create(dto: CreateTimetableSlotDto, actorRole: UserRole, actorUserId: string) {
     this.validateTimeOrder(dto.startTime, dto.endTime);
+
+    let teacherProfileId: string | null = null;
+    if (actorRole === UserRole.TEACHER) {
+      const profile = await this.teacherModel.findOne({ userId: actorUserId }).exec();
+      if (!profile) {
+        throw new NotFoundException('Teacher profile not found.');
+      }
+      teacherProfileId = profile._id.toString();
+
+      if (dto.teacherId !== teacherProfileId) {
+        throw new ForbiddenException('Teachers can only create timetable entries for themselves.');
+      }
+    }
 
     const teacher = await this.findTeacherById(dto.teacherId);
     await this.validateTeacherEligibility(teacher, dto.className, dto.subject);
@@ -107,8 +121,73 @@ export class TimetableService {
     return this.toResponse(slot);
   }
 
-  async update(id: string, dto: UpdateTimetableSlotDto) {
+  async createBulk(dtos: CreateTimetableSlotDto[], actorRole: UserRole, actorUserId: string) {
+    let teacherProfileId: string | null = null;
+    if (actorRole === UserRole.TEACHER) {
+      const profile = await this.teacherModel.findOne({ userId: actorUserId }).exec();
+      if (!profile) {
+        throw new NotFoundException('Teacher profile not found.');
+      }
+      teacherProfileId = profile._id.toString();
+    }
+
+    const slotsToCreate: any[] = [];
+
+    for (const dto of dtos) {
+      this.validateTimeOrder(dto.startTime, dto.endTime);
+
+      if (actorRole === UserRole.TEACHER && dto.teacherId !== teacherProfileId) {
+        throw new ForbiddenException('Teachers can only create timetable entries for themselves.');
+      }
+
+      const teacher = await this.findTeacherById(dto.teacherId);
+      await this.validateTeacherEligibility(teacher, dto.className, dto.subject);
+
+      await this.ensureNoConflicts({
+        date: dto.date,
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+        className: dto.className,
+        teacherId: dto.teacherId,
+      });
+
+      const batchConflict = slotsToCreate.some((existing) => 
+        existing.date === dto.date &&
+        (existing.className === dto.className || existing.teacherId === dto.teacherId) &&
+        this.overlaps(dto.startTime, dto.endTime, existing.startTime, existing.endTime)
+      );
+
+      if (batchConflict) {
+        throw new ConflictException(
+          `Overlap conflict detected within the new timetable slots batch for date ${dto.date}.`
+        );
+      }
+
+      slotsToCreate.push({
+        ...dto,
+        teacherName: teacher.name,
+      });
+    }
+
+    const createdSlots = await this.slotModel.create(slotsToCreate);
+    return createdSlots.map((slot) => this.toResponse(slot));
+  }
+
+  async update(id: string, dto: UpdateTimetableSlotDto, actorRole: UserRole, actorUserId: string) {
     const slot = await this.findSlotById(id);
+
+    let teacherProfileId: string | null = null;
+    if (actorRole === UserRole.TEACHER) {
+      const profile = await this.teacherModel.findOne({ userId: actorUserId }).exec();
+      if (!profile) {
+        throw new NotFoundException('Teacher profile not found.');
+      }
+      teacherProfileId = profile._id.toString();
+
+      if (slot.teacherId !== teacherProfileId || (dto.teacherId && dto.teacherId !== teacherProfileId)) {
+        throw new ForbiddenException('Teachers can only modify their own timetable entries.');
+      }
+    }
 
     const nextDate = dto.date ?? slot.date;
     const nextStart = dto.startTime ?? slot.startTime;
@@ -144,8 +223,21 @@ export class TimetableService {
     return this.toResponse(slot);
   }
 
-  async remove(id: string) {
+  async remove(id: string, actorRole: UserRole, actorUserId: string) {
     const slot = await this.findSlotById(id);
+
+    if (actorRole === UserRole.TEACHER) {
+      const profile = await this.teacherModel.findOne({ userId: actorUserId }).exec();
+      if (!profile) {
+        throw new NotFoundException('Teacher profile not found.');
+      }
+      const teacherProfileId = profile._id.toString();
+
+      if (slot.teacherId !== teacherProfileId) {
+        throw new ForbiddenException('Teachers can only delete their own timetable entries.');
+      }
+    }
+
     await slot.deleteOne();
     return { id };
   }

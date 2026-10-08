@@ -107,6 +107,7 @@ const AdminPortal = () => {
     deleteClassSubject,
     fetchPlannerAllocations,
     createPlannerAllocation,
+    createPlannerAllocationsBulk,
     updatePlannerAllocation,
     deletePlannerAllocation,
   } = useAdminData();
@@ -331,6 +332,7 @@ const AdminPortal = () => {
       case "planner":
         return (
           <AdminTimetablePlanner
+            role="ADMIN"
             teachers={teachers}
             allocations={plannerAllocations}
             classOptions={customClasses}
@@ -339,6 +341,7 @@ const AdminPortal = () => {
             classSubjectOptions={classSubjects}
             onLoadWeek={fetchPlannerAllocations}
             onCreateAllocation={createPlannerAllocation}
+            onCreateAllocationBulk={createPlannerAllocationsBulk}
             onUpdateAllocation={updatePlannerAllocation}
             onDeleteAllocation={deletePlannerAllocation}
           />

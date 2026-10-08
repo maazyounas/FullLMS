@@ -282,6 +282,7 @@ const TeacherPortal = () => {
     deleteClassSubject,
     fetchPlannerAllocations,
     createPlannerAllocation,
+    createPlannerAllocationsBulk,
     updatePlannerAllocation,
     deletePlannerAllocation,
   } = useAdminData();
@@ -470,7 +471,23 @@ const TeacherPortal = () => {
           />
         );
       case "timetable":
-        return <TeacherTimetable teacher={teacher} />;
+        return (
+          <AdminTimetablePlanner
+            role="TEACHER"
+            teacherProfile={teacher}
+            teachers={adminTeachers}
+            allocations={plannerAllocations}
+            classOptions={customClasses}
+            subjectOptions={subjectOptions}
+            onAllocationsChange={setPlannerAllocations}
+            classSubjectOptions={classSubjects}
+            onLoadWeek={fetchPlannerAllocations}
+            onCreateAllocation={createPlannerAllocation}
+            onCreateAllocationBulk={createPlannerAllocationsBulk}
+            onUpdateAllocation={updatePlannerAllocation}
+            onDeleteAllocation={deletePlannerAllocation}
+          />
+        );
       case "profile":
         return (
           <TeacherProfile
@@ -566,6 +583,8 @@ const TeacherPortal = () => {
       case "planner":
         return (
           <AdminTimetablePlanner
+            role="TEACHER"
+            teacherProfile={teacher}
             teachers={adminTeachers}
             allocations={plannerAllocations}
             classOptions={customClasses}
@@ -574,6 +593,7 @@ const TeacherPortal = () => {
             classSubjectOptions={classSubjects}
             onLoadWeek={fetchPlannerAllocations}
             onCreateAllocation={createPlannerAllocation}
+            onCreateAllocationBulk={createPlannerAllocationsBulk}
             onUpdateAllocation={updatePlannerAllocation}
             onDeleteAllocation={deletePlannerAllocation}
           />

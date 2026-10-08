@@ -29,7 +29,7 @@ import {
   TimetableSlotResponseDto,
 } from './dto/timetable-response.dto';
 import { TimetableService } from './timetable.service';
-import { CreateTimetableSlotDto } from './dto/create-timetable-slot.dto';
+import { CreateTimetableSlotDto, CreateTimetableSlotsBulkDto } from './dto/create-timetable-slot.dto';
 import { UpdateTimetableSlotDto } from './dto/update-timetable-slot.dto';
 import { ApiCommonErrorResponses } from '../../common/swagger/api-error-responses.decorator';
 
@@ -69,37 +69,58 @@ export class TimetableController {
   }
 
   @Post('slots')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @ApiOperation({ summary: 'Create timetable slot' })
   @ApiBody({ type: CreateTimetableSlotDto })
   @ApiOkResponse({ type: TimetableSlotResponseDto })
-  async createSlot(@Body() dto: CreateTimetableSlotDto) {
+  async createSlot(
+    @CurrentUser() actor: RequestUser,
+    @Body() dto: CreateTimetableSlotDto,
+  ) {
     return {
-      data: await this.timetableService.create(dto),
+      data: await this.timetableService.create(dto, actor.role, actor.sub),
+    };
+  }
+
+  @Post('slots/bulk')
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  @ApiOperation({ summary: 'Bulk create timetable slots' })
+  @ApiBody({ type: CreateTimetableSlotsBulkDto })
+  @ApiOkResponse({ type: TimetableSlotListResponseDto })
+  async createSlotsBulk(
+    @CurrentUser() actor: RequestUser,
+    @Body() dto: CreateTimetableSlotsBulkDto,
+  ) {
+    return {
+      data: await this.timetableService.createBulk(dto.slots, actor.role, actor.sub),
     };
   }
 
   @Patch('slots/:id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @ApiOperation({ summary: 'Update timetable slot' })
   @ApiBody({ type: UpdateTimetableSlotDto })
   @ApiOkResponse({ type: TimetableSlotResponseDto })
   async updateSlot(
+    @CurrentUser() actor: RequestUser,
     @Param('id') id: string,
     @Body() dto: UpdateTimetableSlotDto,
   ) {
     return {
-      data: await this.timetableService.update(id, dto),
+      data: await this.timetableService.update(id, dto, actor.role, actor.sub),
     };
   }
 
   @Delete('slots/:id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
   @ApiOperation({ summary: 'Delete timetable slot' })
   @ApiOkResponse({ type: DeleteTimetableSlotResponseDto })
-  async removeSlot(@Param('id') id: string) {
+  async removeSlot(
+    @CurrentUser() actor: RequestUser,
+    @Param('id') id: string,
+  ) {
     return {
-      data: await this.timetableService.remove(id),
+      data: await this.timetableService.remove(id, actor.role, actor.sub),
     };
   }
 }

@@ -472,6 +472,55 @@ export const useAdminData = () => {
     return mapped;
   };
 
+  const createPlannerAllocationsBulk = async (
+    slots: {
+      date: string;
+      startTime: string;
+      endTime: string;
+      className: string;
+      subject: string;
+      teacherId: number;
+    }[]
+  ) => {
+    const payload = slots.map((slot) => {
+      const selectedTeacher = teachers.find((teacher) => teacher.id === slot.teacherId);
+      const backendTeacherId =
+        teacherIdMap[slot.teacherId] ??
+        (selectedTeacher ? teacherBackendByName[selectedTeacher.name.trim().toLowerCase()] : undefined);
+      if (!backendTeacherId) {
+        throw new Error('Selected teacher is not synced with backend. Refresh and try again.');
+      }
+      return {
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        className: slot.className,
+        subject: slot.subject,
+        teacherId: backendTeacherId,
+      };
+    });
+
+    const response = await apiAuthRequest<{ data: BackendTimetableSlot[] }>('/timetable/slots/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ slots: payload }),
+    });
+
+    const created = response.data || [];
+
+    const idMap: Record<string, number> = {};
+    slots.forEach(slot => {
+      const selectedTeacher = teachers.find((t) => t.id === slot.teacherId);
+      const backendTeacherId = teacherIdMap[slot.teacherId] ?? (selectedTeacher ? teacherBackendByName[selectedTeacher.name.trim().toLowerCase()] : undefined);
+      if (backendTeacherId) {
+        idMap[backendTeacherId] = slot.teacherId;
+      }
+    });
+
+    const mapped = created.map(item => mapBackendSlotToPlanner(item, idMap));
+    setPlannerAllocations((prev) => [...mapped, ...prev]);
+    return mapped;
+  };
+
   const updatePlannerAllocation = async (
     allocationId: string,
     slot: {
@@ -1057,6 +1106,7 @@ export const useAdminData = () => {
     deleteClassSubject,
     fetchPlannerAllocations,
     createPlannerAllocation,
+    createPlannerAllocationsBulk,
     updatePlannerAllocation,
     deletePlannerAllocation,
   } as const;

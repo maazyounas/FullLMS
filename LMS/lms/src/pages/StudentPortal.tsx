@@ -12,6 +12,7 @@ import {
   Megaphone,
   BookOpen,
   ClipboardCheck,
+  Wallet,
 } from "lucide-react";
 import PortalLayout from "@/components/PortalLayout";
 import StudentDashboard from "@/components/student/dashboard/components/StudentDashboard";
@@ -24,6 +25,7 @@ import StudentLeave from "@/components/student/leave/components/StudentLeave";
 import NotificationBell from "@/components/student/notifications/components/NotificationBell";
 import StudentCourses from "@/components/student/courses/components/StudentCourses";
 import StudentQuizzes from "@/components/student/quizzes/StudentQuizzes";
+import StudentFees from "@/components/student/fees/StudentFees";
 import { apiAuthRequest } from "@/lib/api";
 import { EmptyState, SectionLoader } from "@/components/ui/states";
 import type {
@@ -35,6 +37,7 @@ const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "courses", label: "My Courses", icon: BookOpen },
   { id: "grades", label: "My Grades", icon: FileText },
+  { id: "fees", label: "Fees", icon: Wallet },
   { id: "attendance", label: "Attendance", icon: UserCheck },
   { id: "assignments", label: "Assignments", icon: ClipboardList },
   { id: "quizzes", label: "Quizzes", icon: ClipboardCheck },
@@ -206,6 +209,8 @@ const StudentPortal = () => {
         );
       case "grades":
         return <StudentGrades student={student} />;
+      case "fees":
+        return <StudentFees student={student} />;
       case "attendance":
         return <StudentAttendance student={student} />;
       case "assignments":
